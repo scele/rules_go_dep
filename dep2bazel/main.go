@@ -206,7 +206,7 @@ func (t *RemoteGitRepo) GetRepoString(name string, importPath string) string {
 	return str
 }
 
-func remoteRepository(url string, importName string, revision string) (RemoteRepository, error) {
+func remoteRepository(url string, revision string) (RemoteRepository, error) {
 
 	remappedURL := remapURL(url)
 
@@ -271,13 +271,17 @@ def go_deps():
 `)
 
 	for _, lp := range raw.Projects {
-		root, err := vcs.RepoRootForImportPath(lp.Name, false)
+		remote := lp.Name
+		if lp.Source != "" {
+			remote = lp.Source
+		}
+		root, err := vcs.RepoRootForImportPath(remote, false)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
 		importpath := lp.Name
-		repo, err := remoteRepository(root.Repo, lp.Name, lp.Revision)
+		repo, err := remoteRepository(root.Repo, lp.Revision)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to parse %v (%v@%v): %v\n", lp.Name, root.Repo, lp.Revision, err)
 		} else {
