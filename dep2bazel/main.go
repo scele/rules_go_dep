@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -115,12 +114,15 @@ func githubTarball(url string, revision string) (*RemoteTarball, error) {
 	stripPrefix := head.Name
 
 	// Also compute checksum for the downloaded file.
-	sha := fmt.Sprintf("%x", sha256.Sum256(b))
+	//sha := fmt.Sprintf("%x", sha256.Sum256(b))
 
 	return &RemoteTarball{
 		url:         downloadURL,
 		stripPrefix: stripPrefix,
-		sha256:      sha,
+		// Github checksums are not stable either, see e.g.
+		// https://github.com/bazelbuild/rules_go/issues/820
+		// https://github.com/kubernetes/kubernetes/issues/46443
+		sha256:      "",
 	}, nil
 }
 
