@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,6 +19,10 @@ import (
 
 	"github.com/BurntSushi/toml"
 )
+
+var checksum = flag.Bool("sha256", false, "whether to include tarball checksums")
+var buildFileGeneration = flag.String("build-file-generation", "", "the value of build_file_generation attribute")
+var buildFileProtoMode = flag.String("build-file-proto-mode", "disabled", "the value of build_file_generation attribute")
 
 // Lock represents the parsed Gopkg.toml file.
 type Lock struct {
@@ -114,15 +120,18 @@ func githubTarball(url string, revision string) (*RemoteTarball, error) {
 	stripPrefix := head.Name
 
 	// Also compute checksum for the downloaded file.
-	//sha := fmt.Sprintf("%x", sha256.Sum256(b))
+	// NOTE: Github checksums are not stable either, see e.g.
+	// https://github.com/bazelbuild/rules_go/issues/820
+	// https://github.com/kubernetes/kubernetes/issues/46443
+	sha := ""
+	if *checksum {
+		sha = fmt.Sprintf("%x", sha256.Sum256(b))
+	}
 
 	return &RemoteTarball{
 		url:         downloadURL,
 		stripPrefix: stripPrefix,
-		// Github checksums are not stable either, see e.g.
-		// https://github.com/bazelbuild/rules_go/issues/820
-		// https://github.com/kubernetes/kubernetes/issues/46443
-		sha256:      "",
+		sha256:      sha,
 	}, nil
 }
 
@@ -191,7 +200,12 @@ func (t *RemoteTarball) GetRepoString(name string, importPath string) string {
 	if t.sha256 != "" {
 		str += fmt.Sprintf("        sha256 = \"%v\",\n", t.sha256)
 	}
-	str += fmt.Sprintf("        build_file_proto_mode = \"disable\",\n")
+	if *buildFileGeneration != "" {
+		str += fmt.Sprintf("        build_file_generation = \"%v\",\n", *buildFileGeneration)
+	}
+	if *buildFileProtoMode != "" {
+		str += fmt.Sprintf("        build_file_proto_mode = \"%v\",\n", *buildFileProtoMode)
+	}
 	str += fmt.Sprintf("    )\n")
 	return str
 }
@@ -239,16 +253,22 @@ const repoTemplateNoChecksum = `
 `
 
 func usage() {
-	fmt.Println("usage: dep2bazel path/to/Gopkg.lock")
+	fmt.Println("usage: dep2bazel [OPTIONS] <Gopkg.lock>")
+	fmt.Println("")
+	fmt.Println("Options:")
+	flag.PrintDefaults()
 	os.Exit(1)
 }
 
 func main() {
-	if len(os.Args) != 2 {
+	flag.Usage = usage
+	flag.Parse()
+
+	if len(flag.Args()) != 1 {
 		usage()
 	}
 
-	filename := strings.TrimSpace(os.Args[1])
+	filename := strings.TrimSpace(flag.Arg(0))
 	if filename == "" {
 		usage()
 	}
