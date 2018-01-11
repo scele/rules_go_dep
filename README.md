@@ -2,7 +2,7 @@
 
 ## dep2bazel
 
-`dep2bazel` is a utility that onverts `Gopkg.lock` to bazel `go_repository` workspace rules.
+`dep2bazel` is a utility that converts `Gopkg.lock` to bazel `go_repository` workspace rules.
 
 After modifying Gopkg.lock with `dep ensure`, do:
 
