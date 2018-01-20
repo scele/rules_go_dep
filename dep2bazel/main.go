@@ -22,7 +22,7 @@ import (
 
 var checksum = flag.Bool("sha256", false, "whether to include tarball checksums")
 var buildFileGeneration = flag.String("build-file-generation", "", "the value of build_file_generation attribute")
-var buildFileProtoMode = flag.String("build-file-proto-mode", "disabled", "the value of build_file_generation attribute")
+var buildFileProtoMode = flag.String("build-file-proto-mode", "disable", "the value of build_file_generation attribute")
 var outputFilename = flag.String("o", "", "output filename")
 
 var outputFile = os.Stdout
