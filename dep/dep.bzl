@@ -1,10 +1,10 @@
 """Import go dep dependencies into Bazel."""
 
 def executable_extension(ctx):
-  extension = ""
-  if ctx.os.name.startswith('windows'):
-    extension = ".exe"
-  return extension
+    extension = ""
+    if ctx.os.name.startswith('windows'):
+        extension = ".exe"
+    return extension
 
 def env_execute(ctx, arguments, environment = {}, **kwargs):
     """env_executes a command in a repository context. It prepends "env -i"
@@ -20,7 +20,7 @@ def env_execute(ctx, arguments, environment = {}, **kwargs):
     environment = dict(environment)
     for var in ["TMP", "TMPDIR"]:
         if var in ctx.os.environ and not var in environment:
-        environment[var] = ctx.os.environ[var]
+            environment[var] = ctx.os.environ[var]
     for k, v in environment.items():
         env_args.append("%s=%s" % (k, v))
     arguments = env_args + arguments
@@ -46,9 +46,9 @@ def _dep_import_impl(ctx):
     result = ctx.execute([
         ctx.path("bin/dep2bazel"),
         "-build-file-generation",
-        "on",
+        ctx.attr.build_file_generation,
         "-build-file-proto-mode",
-        "legacy",
+        ctx.attr.build_file_proto_mode,
         "-o",
         "Gopkg.bzl",
         "-gopath",
@@ -68,6 +68,8 @@ dep_import = repository_rule(
             mandatory = True,
             single_file = True,
         ),
+        "build_file_generation": attr.string(default = "on"),
+        "build_file_proto_mode": attr.string(default = "disable"),
         "_rules_go_dep": attr.label(
             default = Label("//:WORKSPACE"),
             allow_files = True,
