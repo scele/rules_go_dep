@@ -24,6 +24,8 @@ var checksum = flag.Bool("sha256", false, "whether to include tarball checksums"
 var buildFileGeneration = flag.String("build-file-generation", "", "the value of build_file_generation attribute")
 var buildFileProtoMode = flag.String("build-file-proto-mode", "disable", "the value of build_file_generation attribute")
 var outputFilename = flag.String("o", "", "output filename")
+var outputGopathRoot = flag.String("gopath", "", "output gopath root")
+var bazelOutputRoot = flag.String("bazel-output-base", "", "bazel output base (obtained with \"bazel info output_base\")")
 
 var outputFile = os.Stdout
 
@@ -320,6 +322,23 @@ def go_deps():
 			fmt.Fprintf(os.Stderr, "failed to parse %v (%v@%v): %v\n", lp.Name, root.Repo, lp.Revision, err)
 		} else {
 			fmt.Fprint(outputFile, repo.GetRepoString(bazelName(importpath), importpath))
+		}
+		if *outputGopathRoot != "" && *bazelOutputRoot != "" {
+			dirpath, dir := path.Split(importpath)
+			dirpath = path.Join(*outputGopathRoot, "src", dirpath)
+			err = os.MkdirAll(dirpath, 0775)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "failed to create directory", err)
+				os.Exit(1)
+			}
+			symlinkName := path.Join(dirpath, dir)
+			bazelPath := path.Join(*bazelOutputRoot, "external", bazelName(importpath))
+			//fmt.Fprintf(os.Stderr, "Creating symlink %v -> %v\n", symlinkName, bazelPath)
+			err = os.Symlink(bazelPath, symlinkName)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "failed to create symlink", err)
+				os.Exit(1)
+			}
 		}
 	}
 }
