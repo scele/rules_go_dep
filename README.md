@@ -1,27 +1,29 @@
 # Go [dep](https://github.com/golang/dep) rules for [Bazel](https://bazel.build/)
 
-## dep2bazel
+See [go-dep-bazel-vscode-example](https://github.com/scele/go-dep-bazel-vscode-example) for an example project.
 
-`dep2bazel` is a utility that converts `Gopkg.lock` to bazel `go_repository` workspace rules.
+## Workspace rules
 
-After modifying Gopkg.lock with `dep ensure`, do:
+Generate `Gopkg.lock` file with `dep init`, and add following rules to your `WORKSPACE` file:
 
-```sh
-go get -u github.com/scele/rules_go_dep/dep2bazel
-dep2bazel ./Gopkg.lock > Gopkg.bzl
-```
-
-Refer to the generated Gopkg.bzl from WORKSPACE file like this:
+Refer to
 
 ```bzl
-load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
-go_rules_dependencies()
-go_register_toolchains(go_version="1.9")
+http_archive(
+    name = "com_github_scele_rules_go_dep",
+    urls = ["https://github.com/scele/rules_go_dep/archive/70fa72816cae64f67634740bc6c0233f39b5d8c6.tar.gz"],
+    strip_prefix = "rules_go_dep-70fa72816cae64f67634740bc6c0233f39b5d8c6",
+    sha256 = "20eeac91a621af97a39e9e30848727d6c14c7d68fcf3fcc139e98e3c363b4661",
+)
 
-load("//:Gopkg.bzl", "go_deps")
+load("@com_github_scele_rules_go_dep//dep:dep.bzl", "dep_import")
+
+dep_import(
+    name = "godeps",
+    gopkg_lock = "//:Gopkg.lock",
+)
+load("@godeps//:Gopkg.bzl", "go_deps")
 go_deps()
 ```
 
-The tool attempts use [http_archive](https://docs.bazel.build/versions/master/be/workspace.html#http_archive)-based
-dependencies with sha256 checksums.  If that fails, it will fall back to
-[git_repository](https://docs.bazel.build/versions/master/be/workspace.html#git_repository)-based dependency.
+This will load all go dependencies expressed in `Gopkg.lock` into your workspace.
