@@ -26,6 +26,8 @@ var buildFileProtoMode = flag.String("build-file-proto-mode", "disable", "the va
 var outputFilename = flag.String("o", "", "output filename")
 var outputGopathRoot = flag.String("gopath", "", "output gopath root")
 var bazelOutputRoot = flag.String("bazel-output-base", "", "bazel output base (obtained with \"bazel info output_base\")")
+var sourceDirectory = flag.String("source-directory", "", "source directory path")
+var goPrefix = flag.String("go-prefix", "", "go prefix (e.g. github.com/scele/rules_go_dep)")
 
 var outputFile = os.Stdout
 
@@ -339,6 +341,23 @@ def go_deps():
 				fmt.Fprintln(os.Stderr, "failed to create symlink", err)
 				os.Exit(1)
 			}
+		}
+	}
+
+	if *outputGopathRoot != "" && *bazelOutputRoot != "" {
+		dirpath, dir := path.Split(*goPrefix)
+		dirpath = path.Join(*outputGopathRoot, "src", dirpath)
+		err = os.MkdirAll(dirpath, 0775)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "failed to create directory", err)
+			os.Exit(1)
+		}
+		symlinkName := path.Join(dirpath, dir)
+		//fmt.Fprintf(os.Stderr, "Creating symlink %v -> %v\n", symlinkName, sourceDirectory)
+		err = os.Symlink(*sourceDirectory, symlinkName)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "failed to create symlink", err)
+			os.Exit(1)
 		}
 	}
 }

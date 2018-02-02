@@ -43,6 +43,13 @@ def _dep_import_impl(ctx):
     if result.return_code:
         fail("failed to build dep2bazel: {}".format(result.stderr))
 
+
+    # TODO(lpeltonen): Is there a better way to get path to the WORKSPACE root?
+    result = ctx.execute([ctx.which("cat"), ctx.path("../../DO_NOT_BUILD_HERE")])
+    if result.return_code:
+        fail("Could not figure out workspace root: %s (%s)" % (result.stdout, result.stderr))
+    workspace_root_path = result.stdout
+
     result = ctx.execute([
         ctx.path("bin/dep2bazel"),
         "-build-file-generation",
@@ -55,6 +62,10 @@ def _dep_import_impl(ctx):
         ctx.path("."),
         "-bazel-output-base",
         ctx.path("../.."),
+        "-go-prefix",
+        ctx.attr.prefix,
+        "-source-directory",
+        workspace_root_path,
         ctx.path(ctx.attr.gopkg_lock)
     ])
 
@@ -68,6 +79,7 @@ dep_import = repository_rule(
             mandatory = True,
             single_file = True,
         ),
+        "prefix": attr.string(mandatory = True),
         "build_file_generation": attr.string(default = "on"),
         "build_file_proto_mode": attr.string(default = "disable"),
         "_rules_go_dep": attr.label(
