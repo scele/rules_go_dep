@@ -72,6 +72,9 @@ def _dep_import_impl(ctx):
     if result.return_code:
         fail("dep_import failed: %s (%s)" % (result.stdout, result.stderr))
 
+    ctx.execute(["rm", workspace_root_path + "/bazel-gopath"])
+    ctx.execute(["ln", "-s", ctx.path("."), workspace_root_path + "/bazel-gopath"])
+
 dep_import = repository_rule(
     attrs = {
         "gopkg_lock": attr.label(
