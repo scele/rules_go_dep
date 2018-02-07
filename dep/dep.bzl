@@ -43,7 +43,6 @@ def _dep_import_impl(ctx):
     if result.return_code:
         fail("failed to build dep2bazel: {}".format(result.stderr))
 
-
     # TODO(lpeltonen): Is there a better way to get path to the WORKSPACE root?
     result = ctx.execute([ctx.which("cat"), ctx.path("../../DO_NOT_BUILD_HERE")])
     if result.return_code:
@@ -74,6 +73,8 @@ def _dep_import_impl(ctx):
 
     ctx.execute(["rm", workspace_root_path + "/bazel-gopath"])
     ctx.execute(["ln", "-s", ctx.path("."), workspace_root_path + "/bazel-gopath"])
+    ctx.symlink(workspace_root_path + "/bazel-genfiles", "genfiles/src/" + ctx.attr.prefix)
+
 
 dep_import = repository_rule(
     attrs = {
