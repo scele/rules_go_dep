@@ -27,7 +27,14 @@ def env_execute(ctx, arguments, environment = {}, **kwargs):
     return ctx.execute(arguments, **kwargs)
 
 def _dep_import_impl(ctx):
-    ctx.file("BUILD.bazel", """package(default_visibility = ["//visibility:public"])""")
+    ctx.file("BUILD.bazel", """
+package(default_visibility = ["//visibility:public"])
+
+sh_binary(
+    name = "update",
+    srcs = ["update.sh"],
+)
+""")
 
     extension = executable_extension(ctx)
     go_tool = ctx.path(Label("@go_sdk//:bin/go{}".format(extension)))
@@ -49,14 +56,27 @@ def _dep_import_impl(ctx):
         fail("Could not figure out workspace root: %s (%s)" % (result.stdout, result.stderr))
     workspace_root_path = result.stdout
 
-    result = ctx.execute([
+    ctx.template(
+        "update.sh",
+        Label("//dep:update.sh.tpl"),
+        substitutions = {
+            "%{dep2bazel}": str(ctx.path("bin/dep2bazel")),
+            "%{build_file_generation}": ctx.attr.build_file_generation,
+            "%{build_file_proto_mode}": ctx.attr.build_file_proto_mode,
+            "%{go_prefix}": ctx.attr.prefix,
+            "%{workspace_root_path}": workspace_root_path,
+            "%{gopkg_lock}": str(ctx.path(ctx.attr.gopkg_lock)),
+            "%{gopkg_bzl}": "" if ctx.attr.gopkg_bzl == None else str(ctx.path(ctx.attr.gopkg_bzl)),
+        },
+        executable=True,
+    )
+
+    cmd = [
         ctx.path("bin/dep2bazel"),
         "-build-file-generation",
         ctx.attr.build_file_generation,
         "-build-file-proto-mode",
         ctx.attr.build_file_proto_mode,
-        "-o",
-        "Gopkg.bzl",
         "-gopath",
         ctx.path("."),
         "-bazel-output-base",
@@ -65,9 +85,15 @@ def _dep_import_impl(ctx):
         ctx.attr.prefix,
         "-source-directory",
         workspace_root_path,
-        ctx.path(ctx.attr.gopkg_lock)
-    ])
+    ]
+    if ctx.attr.gopkg_bzl == None:
+        cmd += ["-o", "Gopkg.bzl"]
+    else:
+        ctx.symlink(ctx.path(ctx.attr.gopkg_bzl), "Gopkg.bzl")
 
+    cmd += [ctx.path(ctx.attr.gopkg_lock)]
+
+    result = ctx.execute(cmd, quiet=False)
     if result.return_code:
         fail("dep_import failed: %s (%s)" % (result.stdout, result.stderr))
 
@@ -81,6 +107,10 @@ dep_import = repository_rule(
         "gopkg_lock": attr.label(
             allow_files = True,
             mandatory = True,
+            single_file = True,
+        ),
+        "gopkg_bzl": attr.label(
+            allow_files = True,
             single_file = True,
         ),
         "prefix": attr.string(mandatory = True),
