@@ -80,7 +80,7 @@ func bazelName(importpath string) string {
 	}
 	slice = append(slice, parts[1:]...)
 	name := strings.Join(slice, "_")
-	return strings.NewReplacer("-", "_", ".", "_").Replace(name)
+	return strings.ToLower(strings.NewReplacer("-", "_", ".", "_").Replace(name))
 }
 
 func githubTarball(url string, revision string) (*RemoteTarball, error) {
