@@ -20,6 +20,8 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+type mirrorFlags map[string]string
+
 var checksum = flag.Bool("sha256", false, "whether to include tarball checksums")
 var buildFileGeneration = flag.String("build-file-generation", "", "the value of build_file_generation attribute")
 var buildFileProtoMode = flag.String("build-file-proto-mode", "disable", "the value of build_file_proto_mode attribute")
@@ -28,6 +30,25 @@ var outputGopathRoot = flag.String("gopath", "", "output gopath root")
 var bazelOutputRoot = flag.String("bazel-output-base", "", "bazel output base (obtained with \"bazel info output_base\")")
 var sourceDirectory = flag.String("source-directory", "", "source directory path")
 var goPrefix = flag.String("go-prefix", "", "go prefix (e.g. github.com/scele/rules_go_dep)")
+var mirrors mirrorFlags
+
+func init() {
+	mirrors = mirrorFlags{}
+	flag.Var(&mirrors, "mirror", "mirrors in from=to format (can be provided multiple times)")
+}
+
+func (i *mirrorFlags) String() string {
+	return fmt.Sprintf("%+v", *i)
+}
+
+func (i *mirrorFlags) Set(value string) error {
+	parts := strings.Split(value, "=")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid mirror syntax: %v (should be to=from)", value)
+	}
+	(*i)[parts[0]] = parts[1]
+	return nil
+}
 
 // Lock represents the parsed Gopkg.toml file.
 type Lock struct {
@@ -52,6 +73,7 @@ type RemoteTarball struct {
 
 type RemoteGitRepo struct {
 	revision string
+	remote   string
 }
 
 type RemoteRepository interface {
@@ -222,15 +244,31 @@ func (t *RemoteGitRepo) GetRepoString(name string, importPath string) string {
 	str += fmt.Sprintf("    go_repository(\n")
 	str += fmt.Sprintf("        name = \"%v\",\n", name)
 	str += fmt.Sprintf("        importpath = \"%v\",\n", importPath)
+	if t.remote != "" {
+		str += fmt.Sprintf("        remote = \"%v\",\n", t.remote)
+	}
 	str += fmt.Sprintf("        commit = \"%v\",\n", t.revision)
-	str += fmt.Sprintf("        build_file_proto_mode = \"disable\",\n")
+	if *buildFileGeneration != "" {
+		str += fmt.Sprintf("        build_file_generation = \"%v\",\n", *buildFileGeneration)
+	}
+	if *buildFileProtoMode != "" {
+		str += fmt.Sprintf("        build_file_proto_mode = \"%v\",\n", *buildFileProtoMode)
+	}
 	str += fmt.Sprintf("    )\n")
 	return str
 }
 
+func getMirrorUrl(url string) string {
+	if m, ok := mirrors[url]; ok {
+		return m
+	}
+	return url
+}
+
 func remoteRepository(url string, revision string) (RemoteRepository, error) {
 
-	remappedURL := remapURL(url)
+	mirrorUrl := getMirrorUrl(url)
+	remappedURL := remapURL(mirrorUrl)
 
 	// First, try downloading a tarball using our remapped url.
 	tarball, err := tryTarball(remappedURL, revision)
@@ -239,24 +277,22 @@ func remoteRepository(url string, revision string) (RemoteRepository, error) {
 	}
 
 	// Then, try downloading a tarball using the original url.
-	tarball, err = tryTarball(url, revision)
+	tarball, err = tryTarball(mirrorUrl, revision)
 	if err == nil {
 		return tarball, nil
 	}
 
 	// If downloading a tarball failed, default to downloading with git.
-	return &RemoteGitRepo{revision: revision}, nil
+	remote := ""
+	if mirrorUrl != url {
+		if i := strings.Index(mirrorUrl, "://"); i != -1 {
+			remote = mirrorUrl[i+3:]
+		} else {
+			remote = mirrorUrl
+		}
+	}
+	return &RemoteGitRepo{revision: revision, remote: remote}, nil
 }
-
-const repoTemplateNoChecksum = `
-    go_repository(
-        name = "%v",
-        importpath = "%v",
-        urls = ["%v"],
-        strip_prefix = "%v",
-        build_file_proto_mode = "disable",
-    )
-`
 
 func usage() {
 	fmt.Println("usage: dep2bazel [OPTIONS] <Gopkg.lock>")

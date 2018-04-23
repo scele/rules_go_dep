@@ -67,6 +67,7 @@ sh_binary(
             "%{workspace_root_path}": workspace_root_path,
             "%{gopkg_lock}": str(ctx.path(ctx.attr.gopkg_lock)),
             "%{gopkg_bzl}": "" if ctx.attr.gopkg_bzl == None else str(ctx.path(ctx.attr.gopkg_bzl)),
+            "%{mirrors}": " ".join(["-mirror=%s=%s" % (k, v) for k, v in ctx.attr.mirrors.items()]),
         },
         executable=True,
     )
@@ -86,6 +87,7 @@ sh_binary(
         "-source-directory",
         workspace_root_path,
     ]
+    cmd += ["-mirror=%s=%s" % (k, v) for k, v in ctx.attr.mirrors.items()]
     if ctx.attr.gopkg_bzl == None:
         cmd += ["-o", "Gopkg.bzl"]
     else:
@@ -116,6 +118,7 @@ dep_import = repository_rule(
         "prefix": attr.string(mandatory = True),
         "build_file_generation": attr.string(default = "on"),
         "build_file_proto_mode": attr.string(default = "disable"),
+        "mirrors": attr.string_dict(),
         "_rules_go_dep": attr.label(
             default = Label("//:WORKSPACE"),
             allow_files = True,

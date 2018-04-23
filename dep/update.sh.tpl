@@ -14,6 +14,7 @@ echo "Generating $GOPKG_BZL from $GOPKG_LOCK..."
     -build-file-proto-mode "%{build_file_proto_mode}" \
     -go-prefix "%{go_prefix}" \
     -source-directory "%{workspace_root_path}" \
+    "%{mirrors}" \
     -o $GOPKG_BZL_TEMP \
     $GOPKG_LOCK
 
